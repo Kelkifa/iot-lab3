@@ -34,7 +34,7 @@ static esp_ble_adv_data_t scan_rsp_data = {
 };
 
 static uint8_t adv_raw_data[10] = {0x09, 0x09, 0x4c, 0x75, 0x6b, 0x45, 0x53, 0x50, 0x33, 0x32};
-static uint8_t scan_rsp_raw_data[8] = {0x07, 0xFF, 0xE5, 0x02, 0x01, 0x01, 0x01, 0x01};
+static uint8_t scan_rsp_raw_data[8] = {0x07, 0xFF, 0x31, 0x07, 0x65, 0x01, 0x01, 0x01};
 
 bool adv_data_set = false;
 bool scan_rsp_data_set = false;
@@ -130,13 +130,13 @@ void app_main()
 	printf("- GAP callback registered\n");
 
 	// configure the adv data
-	ESP_ERROR_CHECK(esp_ble_gap_set_device_name("ESP32_ScanRsp"));
-	ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&adv_data));
-	//ESP_ERROR_CHECK(esp_ble_gap_config_adv_data_raw(adv_raw_data, 10));
+	// ESP_ERROR_CHECK(esp_ble_gap_set_device_name("ESP32_ScanRsp"));
+	// ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&adv_data));
+	ESP_ERROR_CHECK(esp_ble_gap_config_adv_data_raw(adv_raw_data, 10));
 	printf("- ADV data configured\n");
 
 	// configure the scan response data
-	ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&scan_rsp_data));
-	//ESP_ERROR_CHECK(esp_ble_gap_config_scan_rsp_data_raw(scan_rsp_raw_data, 8));
+	// ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&scan_rsp_data));
+	ESP_ERROR_CHECK(esp_ble_gap_config_scan_rsp_data_raw(scan_rsp_raw_data, 8));
 	printf("- Scan response data configured\n\n");
 }
