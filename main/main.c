@@ -99,7 +99,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 						printf(":");
 				}
 
-				// try to read the complete name
+				// Read Divice Name
 				uint8_t *adv_name = NULL;
 				uint8_t adv_name_len = 0;
 				adv_name = esp_ble_resolve_adv_data(param->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
@@ -109,7 +109,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 					for (int i = 0; i < adv_name_len; i++)
 						printf("%c", adv_name[i]);
 				}
-
+				// Read Response Data
 				uint8_t *adv_data = NULL;
 				uint8_t adv_data_len = 0;
 				adv_data = esp_ble_resolve_adv_data(param->scan_rst.ble_adv, ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE, &adv_data_len);
