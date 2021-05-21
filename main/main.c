@@ -110,6 +110,16 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 						printf("%c", adv_name[i]);
 				}
 
+				uint8_t *adv_data = NULL;
+				uint8_t adv_data_len = 0;
+				adv_data = esp_ble_resolve_adv_data(param->scan_rst.ble_adv, ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE, &adv_data_len);
+				if (adv_data)
+				{
+					printf("\nMSSV =");
+					for (int i = 0; i < adv_data_len; i++)
+						printf("%c", adv_data[i]);
+				}
+
 				printf("\n\n");
 				addDevice(param->scan_rst.bda);
 			}
