@@ -9,134 +9,134 @@
 #include "esp_bt_main.h"
 #include "esp_gap_ble_api.h"
 
-static esp_ble_adv_params_t ble_adv_params = {
 
-	.adv_int_min = 0x20,
-	.adv_int_max = 0x40,
-	.adv_type = ADV_TYPE_SCAN_IND,
-	.own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-	.channel_map = ADV_CHNL_ALL,
-	.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-};
+// array of found devices
+#define MAX_DISCOVERED_DEVICES 50
+esp_bd_addr_t discovered_devices[MAX_DISCOVERED_DEVICES];
+int discovered_devices_num = 0;
 
-static esp_ble_adv_data_t adv_data = {
+// scan parameters
+static esp_ble_scan_params_t ble_scan_params = {
+		.scan_type              = BLE_SCAN_TYPE_ACTIVE,
+		.own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+		.scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+		.scan_interval          = 0x50,
+		.scan_window            = 0x30
+	};
 
-	.include_name = true,
-	.flag = ESP_BLE_ADV_FLAG_LIMIT_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT,
-};
+// check if the device was already discovered
+bool alreadyDiscovered(esp_bd_addr_t address) {
 
-static uint8_t manufacturer_data[6] = {0xE5, 0x02, 0x01, 0x01, 0x01, 0x01};
-static esp_ble_adv_data_t scan_rsp_data = {
+	bool found = false;
+	
+	for(int i = 0; i < discovered_devices_num; i++) {
+		
+		for(int j = 0; j < ESP_BD_ADDR_LEN; j++)
+			found = (discovered_devices[i][j] == address[j]);
+		
+		if(found) break;
+	}
+	
+	return found;
+}
 
-	.set_scan_rsp = true,
-	.manufacturer_len = 6,
-	.p_manufacturer_data = manufacturer_data,
-};
+// add a new device to the list
+void addDevice(esp_bd_addr_t address) {
+	
+	discovered_devices_num++;
+	if(discovered_devices_num > MAX_DISCOVERED_DEVICES) return;
 
-static uint8_t adv_raw_data[10] = {0x09, 0x09, 0x4c, 0x75, 0x6b, 0x45, 0x53, 0x50, 0x33, 0x32};
-static uint8_t scan_rsp_raw_data[8] = {0x07, 0xFF, 0xE5, 0x02, 0x01, 0x01, 0x01, 0x01};
-
-bool adv_data_set = false;
-bool scan_rsp_data_set = false;
+	for(int i = 0; i < ESP_BD_ADDR_LEN; i++)
+		discovered_devices[discovered_devices_num - 1][i] = address[i];
+}
 
 // GAP callback
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
-	switch (event)
-	{
-
-	case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
-
-		printf("ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT\n");
-		adv_data_set = true;
-		if (scan_rsp_data_set)
-			esp_ble_gap_start_advertising(&ble_adv_params);
-		break;
-
-	case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
-
-		printf("ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT\n");
-		adv_data_set = true;
-		if (scan_rsp_data_set)
-			esp_ble_gap_start_advertising(&ble_adv_params);
-		break;
-
-	case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
-
-		printf("ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT\n");
-		scan_rsp_data_set = true;
-		if (adv_data_set)
-			esp_ble_gap_start_advertising(&ble_adv_params);
-		break;
-
-	case ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT:
-
-		printf("ESP_GAP_BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE_EVT\n");
-		scan_rsp_data_set = true;
-		if (adv_data_set)
-			esp_ble_gap_start_advertising(&ble_adv_params);
-		break;
-
-	case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
-
-		printf("ESP_GAP_BLE_ADV_START_COMPLETE_EVT\n");
-		if (param->adv_start_cmpl.status == ESP_BT_STATUS_SUCCESS)
-		{
-			printf("Advertising started\n\n");
-		}
-		else
-			printf("Unable to start advertising process, error code %d\n\n", param->scan_start_cmpl.status);
-		break;
-
-	default:
-
-		printf("Event %d unhandled\n\n", event);
-		break;
+    switch (event) {
+		
+		case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: 
+				
+			printf("ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT\n");
+			if(param->scan_param_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+				printf("Scan parameters set, start scanning for 10 seconds\n\n");
+				esp_ble_gap_start_scanning(10);
+			}
+			else printf("Unable to set scan parameters, error code %d\n\n", param->scan_param_cmpl.status);
+			break;
+		
+		case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
+			
+			printf("ESP_GAP_BLE_SCAN_START_COMPLETE_EVT\n");
+			if(param->scan_start_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+				printf("Scan started\n\n");
+			}
+			else printf("Unable to start scan process, error code %d\n\n", param->scan_start_cmpl.status);
+			break;
+		
+		case ESP_GAP_BLE_SCAN_RESULT_EVT:
+			
+			if(param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT) {
+				
+				if(!alreadyDiscovered(param->scan_rst.bda)) {
+					
+					printf("ESP_GAP_BLE_SCAN_RESULT_EVT\n");
+					printf("Device found: ADDR=");
+					for(int i = 0; i < ESP_BD_ADDR_LEN; i++) {
+						printf("%02X", param->scan_rst.bda[i]);
+						if(i != ESP_BD_ADDR_LEN -1) printf(":");
+					}
+					
+					printf("\n\n");
+					addDevice(param->scan_rst.bda);
+				}
+				
+			}
+			else if(param->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_CMPL_EVT)
+				printf("Scan complete\n\n");
+			break;
+		
+		default:
+		
+			printf("Event %d unhandled\n\n", event);
+			break;
 	}
 }
 
-void app_main()
-{
 
-	printf("BT broadcast\n\n");
-
+void app_main() {
+	
+	printf("BT scan\n\n");
+	
 	// set components to log only errors
 	esp_log_level_set("*", ESP_LOG_ERROR);
-
+	
 	// initialize nvs
 	ESP_ERROR_CHECK(nvs_flash_init());
 	printf("- NVS init ok\n");
-
+	
 	// release memory reserved for classic BT (not used)
 	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 	printf("- Memory for classic BT released\n");
-
+	
 	// initialize the BT controller with the default config
 	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-	esp_bt_controller_init(&bt_cfg);
+    esp_bt_controller_init(&bt_cfg);
 	printf("- BT controller init ok\n");
-
+	
 	// enable the BT controller in BLE mode
-	esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    esp_bt_controller_enable(ESP_BT_MODE_BLE);
 	printf("- BT controller enabled in BLE mode\n");
-
+	
 	// initialize Bluedroid library
 	esp_bluedroid_init();
-	esp_bluedroid_enable();
+    esp_bluedroid_enable();
 	printf("- Bluedroid initialized and enabled\n");
-
+	
 	// register GAP callback function
 	ESP_ERROR_CHECK(esp_ble_gap_register_callback(esp_gap_cb));
-	printf("- GAP callback registered\n");
-
-	// configure the adv data
-	ESP_ERROR_CHECK(esp_ble_gap_set_device_name("ESP32_ScanRsp"));
-	ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&adv_data));
-	//ESP_ERROR_CHECK(esp_ble_gap_config_adv_data_raw(adv_raw_data, 10));
-	printf("- ADV data configured\n");
-
-	// configure the scan response data
-	ESP_ERROR_CHECK(esp_ble_gap_config_adv_data(&scan_rsp_data));
-	//ESP_ERROR_CHECK(esp_ble_gap_config_scan_rsp_data_raw(scan_rsp_raw_data, 8));
-	printf("- Scan response data configured\n\n");
+	printf("- GAP callback registered\n\n");
+	
+	// configure scan parameters
+	esp_ble_gap_set_scan_params(&ble_scan_params);
 }
